@@ -83,33 +83,40 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     vx          = zeros(Ny)                                         # velocity
     τII         = zeros(1)                                          # second invatriant of stress tensor
     pFlag       = ones(1)                                           # ceofficent for plasticity (can either be 1 or 0)
+    TBuf        = copy(Temp)                                        # buffer for temperature
+    τBuf        = similar(TBuf)                                     # buffer for stress
 
-    P = (;Ny, ηs, vx, ϵs, A, σYield, ηmin, γ, G, D, h,  ρ, cp, k, vBC, η, Tref, τII, pFlag, HI)
+    P = (;Ny, ηs, vx, ϵs, A, σYield, ηmin, γ, G, D, h,  ρ, cp, k, vBC, η, Tref, τII, pFlag, HI, TBuf, τBuf)
 
     println("---------Started solver with Ny: $Ny -----------")
 
     function shearElastoPlastic!(dU,U,P,t)
 
-    
-        P.ηs            .= (P.η .* exp.(-P.γ .*(U[1:P.Ny-1] .- P.Tref ))) .+ P.ηmin             # updating temperature dependent viscosity
+        @views P.TBuf     .= U[1:P.Ny-1]
+        P.ηs            .= (P.η .* exp.(-P.γ .*(P.TBuf .- P.Tref ))) .+ P.ηmin             # updating temperature dependent viscosity
        
         nLV!(P.A, P.Ny, P.ηs, P.h)                                                              # updating coefficent matrix for velocities
 
         P.vx            .=  P.A \ P.vBC                                                         # computing  velocities
         P.ϵs            .= 0.5 .* diff(P.vx) ./ P.h                                            # updating strainrate
-        P.τII           .= sqrt(0.5 *(U[P.Ny + P.HI]^2))                                        # updating second invariant of stress tensor
+        
+        @views P.τBuf   .= U[P.Ny:end]   
+        P.τII           .= sqrt(0.5 *(P.τBuf[P.HI]^2))                                        # updating second invariant of stress tensor
             
-        dU[P.Ny:end]    .=  P.pFlag[1] .* ((2* P.G .* P.ϵs) .- (U[P.Ny:end]  .* P.G ./ P.ηs))   # solving dτ/dt = 2Gϵ - G* (τ/η) (elastic case, if plastic = 0)
+        dU[P.Ny:end]    .=  P.pFlag[1] .* ((2* P.G .* P.ϵs) .- (P.τBuf  .* P.G ./ P.ηs))   # solving dτ/dt = 2Gϵ - G* (τ/η) (elastic case, if plastic = 0)
 
 
         # solving ∂T/∂t = (κ ∂T²/∂y² + 2τϵ)/ρcₚ with ϵ = ϵ_total - ϵ_elastic, ϵ_elastic = 1/2G * dτ/dt  
              
-        dU[1:Ny-1]      .= ((P.k .* *(P.D, U[1:P.Ny-1])).+ (2 .*(dU[P.Ny:end] .+ U[P.Ny:end]).* (P.ϵs .-(1/2G .* dU[P.Ny:end])))) ./(P.ρ * P.cp) 
+        dU[1:Ny-1]      .= ((P.k .* *(P.D, P.TBuf)).+ (2 .*(dU[P.Ny:end] .+ P.τBuf).* (P.ϵs .-(1/2G .* dU[P.Ny:end])))) ./(P.ρ * P.cp) 
 
         dU[1]           = 0     # Dirichlet BC for temperature
         dU[Ny-1]        = 0     
 
     end
+
+    
+
 
     function saveVals!(u, t, integrator)
 
