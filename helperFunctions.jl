@@ -22,17 +22,18 @@ function compLocalMin(time)
 end
 
 function nLV!(A, Ny, η_eff,h)
-    
-    A[1,1]      = 1
-    A[end,end]  = 1
-    for i in 2:Ny-1
-        A[i,i+1] = η_eff[i]/2h^2
-        A[i,i] = -(η_eff[i-1] + η_eff[i])/2h^2
-        A[i,i-1] = η_eff[i-1]/2h^2
-    end
-    
 
+    A.du[2:Ny-1] = η_eff[2:Ny-1]/2h^2
+    A.dl[1:Ny-2] = η_eff[1:Ny-2]/2h^2
+    for i in 2:Ny-1
+        A.d[i]      = -(η_eff[i-1] + η_eff[i])/2h^2
+    end
+    A.d[1]      = 1
+    A.d[end]    = 1
+    A.du[1]     = 0
+    A.dl[end]   = 0
 end
+
 
 
 

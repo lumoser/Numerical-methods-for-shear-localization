@@ -97,7 +97,8 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
        
         nLV!(P.A, P.Ny, P.ηs, P.h)                                                              # updating coefficent matrix for velocities
 
-        P.vx            .=  P.A \ P.vBC                                                         # computing  velocities
+        copyto!(P.vx, P.vBC)
+        ldiv!(P.vx, lu!(P.A), P.vBC)                        # computing  velocities
         P.ϵs            .= 0.5 .* diff(P.vx) ./ P.h                                            # updating strainrate
         
         @views P.τBuf   .= U[P.Ny:end]   
