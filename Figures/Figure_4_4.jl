@@ -1,12 +1,17 @@
 using LinearAlgebra
 using SparseArrays
+using GLMakie
 using DifferentialEquations
+using DelimitedFiles
 using BenchmarkTools
 using ProfileView
 
 
-include("helperFunctions.jl")
+include("../helperFunctions.jl")
 
+
+
+GLMakie.activate!(title = "Benchmark", fxaa = false)
 
 function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
 
@@ -51,7 +56,7 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     qmax        = 13            # default = 10
 
 
-    #--------Initial Condition---------------
+    #--------init Condition---------------
 
     yu          = LinRange(0,1,Ny-1)                                    # unified grid (for gaussian pulse)
     Temp        =    initTemp .* ones(Ny-1)                             # temperature init
@@ -61,6 +66,13 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     HI          = Int16((Ny-1)/2)                                       # Index for domain half for cell centers
     
     
+    #-------setup halfspace cooling----------
+    #Temp[1:HI]  = 1200 * erf.(abs.(yc[1:HI]) ./(2 *  sqrt(k1 * 2e7*secpyear))) 
+    #Temp[HI:end]  = 1200 * erf.(abs.(yc[HI:end]) ./(2 *  sqrt(k2 * 2.5e8 *secpyear))) 
+
+    #-----------------DiffEq Init------------------
+
+
     xc, D, h   = D2nd(Ny-1,L)                      # Matrix for 2nd derivative of vector (FD) and the coordinates to cell centers
     x          = range(0,L,Ny)                     # coordinates of the cell edges
 
@@ -93,15 +105,16 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     function shearElastoPlastic!(dU,U,P,t)
 
         @views P.TBuf     .= U[1:P.Ny-1]
-        P.ηs            .= (P.η .* exp.(-P.γ .*(P.TBuf .- P.Tref ))) .+ P.ηmin             # updating temperature dependent viscosity
+        P.ηs            .= (P.η .* exp.(-P.γ .*(TBuf .- P.Tref ))) .+ P.ηmin             # updating temperature dependent viscosity
        
         nLV!(P.A, P.Ny, P.ηs, P.h)                                                              # updating coefficent matrix for velocities
-
+                               
         copyto!(P.vx, P.vBC)
         ldiv!(P.vx, lu!(P.A), P.vBC)                        # computing  velocities
-        P.ϵs            .= 0.5 .* diff(P.vx) ./ P.h                                            # updating strainrate
+
         
-        @views P.τBuf   .= U[P.Ny:end]   
+        P.ϵs            .= 0.5 .* diff(P.vx) ./ P.h 
+        @views P.τBuf   .= U[P.Ny:end]                                     # updating strainrate
         P.τII           .= sqrt(0.5 *(P.τBuf[P.HI]^2))                                        # updating second invariant of stress tensor
             
         dU[P.Ny:end]    .=  P.pFlag[1] .* ((2* P.G .* P.ϵs) .- (P.τBuf  .* P.G ./ P.ηs))   # solving dτ/dt = 2Gϵ - G* (τ/η) (elastic case, if plastic = 0)
@@ -115,8 +128,6 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
         dU[Ny-1]        = 0     
 
     end
-
-    
 
 
     function saveVals!(u, t, integrator)
@@ -168,7 +179,8 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
                     qmin        = qmin,
                     qmax        = qmax
                     )
-    timer = @benchmark $bb1() 
+    #timer = @benchmark $bb1() 
+    timer = 0
     
     println("method:", solver)  
     println("reltol:$reltol", ", abstol:$abstol")   
@@ -189,11 +201,120 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
         qmax        = qmax
     )
     
+      
+    #----------plotting section----------
+    evoPlt = false
+    τplot  = true
+    p2f    = true 
+    
+    if evoPlt
+        function evoPltAdaptive!(fig::Figure, ax1::Axis, ax2::Axis, ax3::Axis, ax4::Axis)
+            empty!(ax1)
+            empty!(ax2)
+            empty!(ax3)
+            empty!(ax4)
+            lines!(ax1, Temp, xc/1e3, color=:blue,  linewidth = 3,label = "Init T")   # Initial condition
+        
+            #--------------DifferentialEquations--------------
+            lines!(ax1,solution.u[i][1:Ny-1], xc/1e3, color =:red, linestyle=:solid, linewidth = 3, label = "T")
+            lines!(ax4, log10.(savedValues.saveval[j][1])  , xc/1e3, color = :red, linewidth = 3, linestyle=:solid, label = "η")
+            lines!(ax3, log10.(abs.(savedValues.saveval[j][2])), xc/1e3, color = :red, linewidth = 3,linestyle=:solid, label = "ϵ");
+            lines!(ax2, savedValues.saveval[j][3] .*secpyear*1e2, x/1e3, color = :red, linewidth = 3, linestyle=:solid, label = "Vₓ");
+            tyrs        = solution.t[i] /secpyear
+            ax1.title   = rpad("Time=$(round(tyrs, digits=5)) yrs",20)
             
+            sleep(0.0005)
+            display(fig)
+        end
+
+        fig = Figure(size = (1450, 850), fontsize =34)
+        tempLim = maximum(solution.u[end][HI] +50 )
+        limits = ((500, tempLim,nothing, nothing))
+        ax1 = Axis(fig[1, 1], xlabel="Temperature [°C]", ylabel="Depth y [km]", title="Time=$time myr",limits=limits)
+        ax2 = Axis(fig[1, 2], xlabel="Velocity [cm/year]")  
+        ax3 = Axis(fig[1, 3], xlabel="Log shear strain rate [1/s]")#, limits = ((-35,0, nothing,nothing)))  
+        ax4 = Axis(fig[1, 4], xlabel="Log viscosity [Pa s]")
+        i = 1           # 2 if plastic bc callbacks mess 
+        j = 1
+        println(length(solution.u))
+        println(length(savedValues.saveval))
+        for p in 1:length(solution.u) 
+            evoPltAdaptive!(fig, ax1, ax2, ax3, ax4)
+            i += 1
+            j += 1           
+        end
+    
+        axislegend(ax1, merge = true, unique = true)
+        axislegend(ax2, merge = true, unique = true)
+        axislegend(ax3, merge = true, unique = true)
+        axislegend(ax4, merge = true, unique = true)
+        if p2f
+            save("Figures/ParamEvoPlastic1_0.png", fig)
+        end
+
+    elseif τplot 
+        function stressPlt!(TmaxDE, timePlot, p2f::Bool)
+            fig2 = Figure(size = (1600,800),fontsize = 34)
+            tlim = tmax*1e-3 /secpyear 
+            lims = ((0,tlim,0,3900))
+            tempLim = maximum(TmaxDE ) +40
+            ax7 = Axis(fig2[1,1], xlabel="Time [kyr]",ylabel = "Shear stress [MPa]", limits = lims)
+            ax8 = Axis(fig2[1,1],ylabel = "Temperature [°C]",xlabel = "",yaxisposition = :right, limits = (0,tlim,550,tempLim))
+            ax9 = Axis(fig2[1,2], ylabel = "Stepsize [yr]", xlabel = "Time[kyr]")  
+        
+            lines!(ax8, timePlot ./secpyear .*1e-3, TmaxDE, color = :green, linewidth = 3, label = "T")
+            lines!(ax7, timePlot ./secpyear .*1e-3, tauplot .*1e-6, color = :red, linewidth = 3 , label = "τxy")
+        
+            sSize = diff(solution.t) ./secpyear
+            lines!(ax9, solution.t[1:end-1] ./secpyear .*1e-3, sSize, label = solver , linewidth = 3)
+            vpl     = Int64(abs(round(vcm)))
+            dtmin   = Int64(round(minimum(diff(solution.t))))
+            ndt     = length(solution.t)
+            #yield   = Int64(round(σYield *1e-9))   
+            yield   =  round(σYield *1e-9, digits =3)
+            gT      = Int64(round(G *1e-9))
+            bLine = 200
+            posT     = 0.4
+            
+            
+            dts = compLocalMin(solution.t)
+            dtlocy = round( minimum(dts[1:end-1]) / secpyear  ,digits = 4)
+            
+            println("dtloc(sec)", minimum(dts[1:end-1]))
+            println("dtloc(yrs)", dtlocy)
+  
+            text!(ax7, "reltol = $reltol", position= Point2f(posT, bLine +1200))
+    
+            text!(ax7, "Ny = $Ny", position= Point2f(posT,bLine +1000))
+ 
+            text!(ax7, "nSteps = $ndt ", position= Point2f(posT,bLine +1400))
+
+            axislegend(ax7, merge = false, unique = true, position =:lt)
+            axislegend(ax8, merge = false, unique = true, position =:rt)
+            axislegend(ax9, merge = false, unique = true, position =:rt)
+            display(fig2)
+            t_years = Int64(round(timePlot[end] /secpyear))
+            if p2f
+                save("Figures/Figure_4_4.png", fig2)
+            end
+        end
+
+        plotsteps = 10000
+        timePlot            = LinRange(0, tmax, plotsteps)
+        tauplot          = zeros(plotsteps)
+        TmaxDE           = zeros(plotsteps)
+        for i in 1:length(timePlot)
+            tauplot[i] = solution(timePlot[i])[Ny+HI]
+            TmaxDE[i]  = solution(timePlot[i])[HI]  
+        end
+        stressPlt!(TmaxDE, timePlot, p2f)
+    
+
+     
+    end
+       
     println("adaptive nt: ", length(solution.t))   
     println("---------Solution done!-----------")
-
-    
 
     return solution, timer
 
@@ -201,5 +322,8 @@ end
 
 
 
-sol, timer =  mainSolver()
+
+
+
+sol, timer =  mainSolver(401, 5e-3, "ROCK2")
 display(timer)
