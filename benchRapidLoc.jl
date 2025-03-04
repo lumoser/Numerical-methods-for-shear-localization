@@ -175,6 +175,21 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
                     qmax        = qmax
                     )
     timer = @benchmark $bb1() 
+
+    solution = solve(
+        diffTerm, 
+        chSolver,                   
+        reltol      = reltol,
+        abstol      = abstol,
+        dt          =Δt,
+        adaptive    = true, 
+        dtmax       = dtmax, 
+        callback  = cbs1,
+        gamma       = gamma,
+        qmin        = qmin,
+        qmax        = qmax
+    )
+    
     
     println("method:", solver)  
     println("reltol:$reltol", ", abstol:$abstol")   

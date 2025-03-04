@@ -70,6 +70,9 @@ function tolTest()
     dtLocR4P     = zeros(length(reltol)) 
     dtLocR5P     = zeros(length(reltol)) 
 
+    ntTolR4P     =  zeros(length(reltol)) 
+    ntTolR5P     =  zeros(length(reltol)) 
+
 
     for i in 1:length(reltol)
         sol1, timer1 = mainSolver(301, reltol[i],"R4P")
@@ -81,6 +84,9 @@ function tolTest()
         dtLocR4P[i]     = round(minimum(compLocalMin(sol1.t)))
         dtLocR5P[i]     = round(minimum(compLocalMin(sol2.t)))
 
+        ntTolR4P[i]     = length(sol1.t)
+        ntTolR5P[i]     = length(sol2.t)
+
 
     end
 
@@ -90,23 +96,32 @@ function tolTest()
     writedlm("bTimes/dtLocR4P.txt",dtLocR4P)
     writedlm("bTimes/dtLocR5P.txt",dtLocR5P)
 
+    writedlm("bTimes/ntTolR4P.txt", ntTolR4P)
+    writedlm("bTimes/ntTolR5P.txt", ntTolR5P)
+
+
     rTimesLocROCK2  = zeros(length(reltolR)) 
     dtLocROCK2  = zeros(length(reltolR)) 
+    ntTolROCK2  = zeros(length(reltolR)) 
 
     for i in 1:length(reltolR)
         sol1, timer1, = mainSolver(301, reltolR[i], "ROCK2")
 
         rTimesLocROCK2[i]   = timer1.times[1]
         dtLocROCK2[i]       = round(minimum(compLocalMin(sol1.t)))
+        ntTolROCK2[i]       = length(sol1.t)
     end
 
     writedlm("bTimes/rTimesLocROCK2.txt", rTimesLocROCK2)
     writedlm("bTimes/dtLocROCK2.txt", dtLocROCK2)
+    writedlm("bTimes/ntTolROCK2.txt", ntTolROCK2)
 
 end
 
 function highResSol()
-    sol, timer = mainSolver()
+    Ny  =   2001
+    reltol = 1e-15 
+    sol, timer = mainSolver(Ny, reltol, "R5P")
 
     outT    = zeros(length(sol.u))
     outτ    = zeros(length(sol.u))
