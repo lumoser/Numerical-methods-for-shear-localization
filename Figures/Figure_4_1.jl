@@ -48,6 +48,6 @@ axislegend(ax1, merge = false, unique = false, position = :lt)
 axislegend(ax2, merge = true, unique = true, position=:lb)
 
 display(fig1)
-save("Figures/Figure_4_1.png", fig1)
+#save("Figures/Figure_4_1.png", fig1)
 
 
