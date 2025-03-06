@@ -119,9 +119,10 @@ function tolTest()
 end
 
 function highResSol()
-    Ny  =   1001
-    reltol = 1e-12 
+    Ny  =   301
+    reltol = 1e-10 
     sol, timer = mainSolver(Ny, reltol, "R5P")
+    HI = Int32((Ny-1)/2)
 
     outT    = zeros(length(sol.u))
     outτ    = zeros(length(sol.u))
@@ -132,7 +133,7 @@ function highResSol()
      
     writedlm("FC/TFCRapid$Ny.txt", outT )
     writedlm("FC/tauFCRapid$Ny.txt", outτ )
-    writedlm("FC/timesRapid$Ny.txt", solution.t)
+    writedlm("FC/timesRapid$Ny.txt", sol.t)
 
 end
 

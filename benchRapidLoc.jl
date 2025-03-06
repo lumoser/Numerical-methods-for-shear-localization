@@ -176,7 +176,7 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
                     qmax        = qmax
                     )
     timer = @benchmark $bb1() 
-
+    #timer = 0
     solution = solve(
         diffTerm, 
         chSolver,                   
