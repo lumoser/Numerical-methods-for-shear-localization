@@ -119,8 +119,8 @@ function tolTest()
 end
 
 function highResSol()
-    Ny  =   2001
-    reltol = 1e-15 
+    Ny  =   1001
+    reltol = 1e-12 
     sol, timer = mainSolver(Ny, reltol, "R5P")
 
     outT    = zeros(length(sol.u))

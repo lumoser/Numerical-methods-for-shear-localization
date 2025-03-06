@@ -133,7 +133,8 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
         ηi         = P.ηs         
         vi         = P.vx  
         ϵi         = P.ϵs
-
+        ct         = integrator.t / secpyear
+        println("-----------current time: $ct years----------")
         return ηi, ϵi, vi
     end
 
