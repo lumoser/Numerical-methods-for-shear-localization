@@ -262,11 +262,11 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
             ax8 = Axis(fig2[1,1],ylabel = "Temperature [°C]",xlabel = "",yaxisposition = :right, limits = (0,tlim,550,tempLim))
             ax9 = Axis(fig2[1,2], ylabel = "Stepsize [yr]", xlabel = "Time[kyr]")  
         
-            lines!(ax8, timePlot ./secpyear .*1e-3, TmaxDE, color = :green, linewidth = 3, label = "T")
-            lines!(ax7, timePlot ./secpyear .*1e-3, tauplot .*1e-6, color = :red, linewidth = 3 , label = "τxy")
+            lines!(ax8, timePlot ./secpyear .*1e-3, TmaxDE, color = :red, linewidth = 3, label = "T")
+            lines!(ax7, timePlot ./secpyear .*1e-3, tauplot .*1e-6, color = :blue, linewidth = 3 , label = "τxy")
         
             sSize = diff(solution.t) ./secpyear
-            lines!(ax9, solution.t[1:end-1] ./secpyear .*1e-3, sSize, label = solver , linewidth = 3)
+            lines!(ax9, solution.t[1:end-1] ./secpyear .*1e-3, sSize, color=:black, label = solver , linewidth = 3)
             vpl     = Int64(abs(round(vcm)))
             dtmin   = Int64(round(minimum(diff(solution.t))))
             ndt     = length(solution.t)
