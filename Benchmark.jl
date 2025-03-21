@@ -3,8 +3,16 @@ using DelimitedFiles
 
 include("benchRapidLoc.jl")
 
+#=
+This script contains the functions to benchmark the performance in terms of runtime.
+All the runtimes evaluated for the thesis are saved in the folder bTimes.
+Rerunning the benchmarks will overwrite the existing files.
+=#
 
 function spatialBmark()
+
+    #benchmarking the runtime for different spatial resolutions
+
     NyImplicit = [301, 351, 401, 451, 501, 601, 701, 801, 901, 1001]
     
     timesR4P   = zeros(length(NyImplicit))
@@ -61,6 +69,9 @@ function spatialBmark()
 end
 
 function tolTest()
+
+    #benchmarking the runtime for different tolerances and the corresponding timesteps
+    
     reltol = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
     reltolR = [5e-6, 1e-6, 1e-7, 1e-8 ,1e-9, 1e-10]
 
@@ -118,22 +129,5 @@ function tolTest()
 
 end
 
-function highResSol()
-    Ny  =   301
-    reltol = 1e-10 
-    sol, timer = mainSolver(Ny, reltol, "R5P")
-    HI = Int32((Ny-1)/2)
 
-    outT    = zeros(length(sol.u))
-    outτ    = zeros(length(sol.u))
-    for i in 1:length(sol.u)
-        outT[i] = sol.u[i][HI]
-        outτ[i] = sol.u[i][Ny+HI]
-    end
-     
-    writedlm("FC/TFCRapid$Ny.txt", outT )
-    writedlm("FC/tauFCRapid$Ny.txt", outτ )
-    writedlm("FC/timesRapid$Ny.txt", sol.t)
-
-end
 

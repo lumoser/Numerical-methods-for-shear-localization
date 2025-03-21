@@ -5,8 +5,11 @@ using DifferentialEquations
 using DelimitedFiles
 using BenchmarkTools
 using ProfileView
+#=
+this file contains the main solver with a parameter space that results in rapid localization
+no plotting routines are implemented here as this is only for benchmarking purposes
 
-
+=#
 include("helperFunctions.jl")
 
 
@@ -203,25 +206,3 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
 
 end
 
-
-
-
-
-
-function toltest()
-    reltol = [1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10]
-    reltolR = [5e-8, 1e-8, 5e-9, 1e-9 ,5e-10, 1e-10]
-    #for i in 1:length(reltol)
-    #    main(301, reltol[i],"R4P")
-    #    main(301, reltol[i],"R5P")
-    #end
-    for i in 1:length(reltolR)
-        main(201, reltolR[i], "ROCK2")
-    end
-
-end
-
-
-
-#sol, timer =  mainSolver(501, 1e-4, "ROS2")
-#display(timer)

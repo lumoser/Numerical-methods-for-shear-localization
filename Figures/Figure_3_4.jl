@@ -24,18 +24,18 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     Δt          =  1e-4* secpyear               # Initial timestep
     dtmax       = 5e2*secpyear
     tmax        = 1e3*secpyear                  # end time of simulation
-    ε_bg        = 1e-12                         # Background strainrate (Spang et al. 2024)4
+    ε_bg        = 1.3e-12                         # Background strainrate (Spang et al. 2024)4
     L           = -3000;                        # length of domain
     #vbc         = 1e-2 / secpyear              # absolute velocity at the boundary (only use if L = consant)
     vbc         = 2*ε_bg * L                    # Velocity as a function of L
-    G           = 40e9                          # elastic Shear modulus
+    G           = 90e9                          # elastic Shear modulus
     σYield      = 2.4e9
-    ηmin        = 1e15                          # regualrization viscosity
+    ηmin        = 1e19                          # regualrization viscosity
     η           = 1e23                          # background viscosity
     γ           = 0.1
     ρ           = 3300                          # density
     cp          = 1e3                           # heat capacity
-    k           = 2.75                          # conductivity  
+    k           = 4.75                          # conductivity  
 
     
     #-------solver options-------------
@@ -110,7 +110,7 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
         nLV!(P.A, P.Ny, P.ηs, P.h)                                                              # updating coefficent matrix for velocities
                                
         copyto!(P.vx, P.vBC)
-        ldiv!(P.vx, lu!(P.A), P.vBC)                        # computing  velocities
+        ldiv!(lu!(P.A),P.vx )                        # computing  velocities
 
         
         P.ϵs            .= 0.5 .* diff(P.vx) ./ P.h 
@@ -205,7 +205,7 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     #----------plotting section----------
     evoPlt = false
     τplot  = true
-    p2f    = false 
+    p2f    = false
     
     if evoPlt
         function evoPltAdaptive!(fig::Figure, ax1::Axis, ax2::Axis, ax3::Axis, ax4::Axis)
@@ -234,11 +234,11 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
         ax2 = Axis(fig[1, 2], xlabel="Velocity [cm/year]")  
         ax3 = Axis(fig[1, 3], xlabel="Log shear strain rate [1/s]")#, limits = ((-35,0, nothing,nothing)))  
         ax4 = Axis(fig[1, 4], xlabel="Log viscosity [Pa s]")
-        i = 1           # 2 if plastic bc callbacks mess 
+        i = 2           # 2 if plastic bc callbacks mess 
         j = 1
         println(length(solution.u))
         println(length(savedValues.saveval))
-        for p in 1:length(solution.u) 
+        for p in 1:length(solution.u)-1 
             evoPltAdaptive!(fig, ax1, ax2, ax3, ax4)
             i += 1
             j += 1           
@@ -257,7 +257,8 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
             fig2 = Figure(size = (1600,800),fontsize = 34)
             tlim = tmax*1e-3 /secpyear 
             lims = ((0,tlim,0,3900))
-            tempLim = maximum(TmaxDE ) +40
+            #tempLim = maximum(TmaxDE ) +40
+            tempLim = 950
             ax7 = Axis(fig2[1,1], xlabel="Time [kyr]",ylabel = "Shear stress [MPa]", limits = lims)
             ax8 = Axis(fig2[1,1],ylabel = "Temperature [°C]",xlabel = "",yaxisposition = :right, limits = (0,tlim,550,tempLim))
             ax9 = Axis(fig2[1,2], ylabel = "Stepsize [yr]", xlabel = "Time[kyr]")  
@@ -266,7 +267,7 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
             lines!(ax7, timePlot ./secpyear .*1e-3, tauplot .*1e-6, color = :blue, linewidth = 3 , label = "τxy")
         
             sSize = diff(solution.t) ./secpyear
-            lines!(ax9, solution.t[1:end-1] ./secpyear .*1e-3, sSize, color=:black, label = solver , linewidth = 3)
+            lines!(ax9, solution.t[1:end-1] ./secpyear .*1e-3, sSize,color = :black, label = solver , linewidth = 3)
             vpl     = Int64(abs(round(vcm)))
             dtmin   = Int64(round(minimum(diff(solution.t))))
             ndt     = length(solution.t)
@@ -279,23 +280,29 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
             
             dts = compLocalMin(solution.t)
             dtlocy = round( minimum(dts[1:end-1]) / secpyear  ,digits = 4)
-            
+            dtloc = round( minimum(dts[1:end-1])   ,digits = 1) 
             println("dtloc(sec)", minimum(dts[1:end-1]))
             println("dtloc(yrs)", dtlocy)
-  
-            text!(ax7, "reltol = $reltol", position= Point2f(posT, bLine +1200))
-    
-            text!(ax7, "Ny = $Ny", position= Point2f(posT,bLine +1000))
- 
-            text!(ax7, "nSteps = $ndt ", position= Point2f(posT,bLine +1400))
+            #text!(ax7, "dtLoc = $dtlocy years", position= Point2f(posT, bLine +1200))
+            #text!(ax7, "dtloc = $dtloc seconds", position= Point2f(posT, bLine +1200))
+        
+            #text!(ax7, "τyield = $yield GPa", position= Point2f(posT, bLine +1200))
+            
+          
 
+            text!(ax7, "G = $gT GPa", position= Point2f(posT,bLine +800))
+            text!(ax7, "vₓ = $vpl cm/year", position= Point2f(posT, bLine+1000))
+
+            text!(ax7, "nSteps = $ndt ", position= Point2f(posT,bLine +1400))
+            #text!(ax9, "reltol = $reltol" , position = Point2f(0,24) )
+            #text!(ax9, "abstol = $abstol" , position = Point2f(0,21))
             axislegend(ax7, merge = false, unique = true, position =:lt)
             axislegend(ax8, merge = false, unique = true, position =:rt)
             axislegend(ax9, merge = false, unique = true, position =:rt)
             display(fig2)
             t_years = Int64(round(timePlot[end] /secpyear))
             if p2f
-                save("Figures/Figure_4_4.png", fig2)
+                save("Figures/Figure_3_4.png", fig2)
             end
         end
 
@@ -323,7 +330,5 @@ end
 
 
 
-
-
-sol, timer =  mainSolver(401, 5e-3, "ROCK2")
+sol, timer =  mainSolver(501, 1e-4, "R4P")
 display(timer)

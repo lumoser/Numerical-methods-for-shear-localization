@@ -1,6 +1,15 @@
 using LinearAlgebra
 using SparseArrays
 
+#=
+This file contains some small helper functions:
+
+compLocalMin(time) : This function computes the local minimum of the timestep sizes. It is used to evaluate the timestep sizes at the localization point.
+
+nLV!(A, Ny, η_eff,h) : This function computes the matrix A containing the η ceofficents for the velocity computation.
+
+D2nd(n, Lx) : This function computes the second derivative matrix for the spatial discretization.
+=#
 
 
 function compLocalMin(time)

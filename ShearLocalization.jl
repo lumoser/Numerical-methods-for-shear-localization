@@ -4,6 +4,10 @@ using DifferentialEquations
 using BenchmarkTools
 using ProfileView
 
+#=
+This is the main script for the shear localization model. 
+=#
+
 
 include("helperFunctions.jl")
 
@@ -119,7 +123,7 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     
 
 
-    function saveVals!(u, t, integrator)
+    function saveVals!(u, t, integrator)            # function used in the saving callback to save viscosity, strain rate and velocity in each timestep
 
         ηi         = P.ηs         
         vi         = P.vx  
@@ -129,13 +133,13 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     end
 
 
-    function plasticityTrigger(u,t,integrator)
+    function plasticityTrigger(u,t,integrator)  # function to trigger plasticity callback
 
         integrator.p.σYield- sqrt(0.5* u[integrator.p.Ny + integrator.p.HI]^2) 
 
     end
 
-    function addPlasticity!(integrator)
+    function addPlasticity!(integrator)         # callback function called when plasticity is triggered 
 
         println("Plasticity triggered @ ",round(integrator.t/secpyear), " years")
         integrator.p.pFlag[1] = 0
@@ -150,32 +154,18 @@ function mainSolver(Ny = 301, reltol = 1e-6, solver = "R5P" )
     
     plasticCallback = ContinuousCallback(plasticityTrigger, addPlasticity!)                     # Callback for plasticity   
     
-    savedValues = SavedValues(Float64, Tuple{Vector{Float64},Vector{Float64},Vector{Float64}})  # callback for saving parameterEvolution  
-    callback = SavingCallback((u,t,integrator) -> (saveVals!(u,t,integrator)), savedValues)
+    savedValues = SavedValues(Float64, Tuple{Vector{Float64},Vector{Float64},Vector{Float64}})  # init for array saving viscosity, strainrate and velocity  
+    callback = SavingCallback((u,t,integrator) -> (saveVals!(u,t,integrator)), savedValues)     # callback for saving viscosity, strainrate and velocity
 
-    cbs1     = CallbackSet(callback,plasticCallback)                                            # combining the callbacks to a set
+    cbs1     = CallbackSet(callback,plasticCallback)                                            # combining the callbacks to a callbackset
     
-    bb1 = () -> solve(
-                    diffTerm, 
-                    chSolver,                                      
-                    reltol      = reltol,
-                    abstol      = abstol,
-                    dt          = Δt,
-                    adaptive    = true, 
-                    dtmax       = dtmax, 
-                    callback    = cbs1,
-                    gamma       = gamma,
-                    qmin        = qmin,
-                    qmax        = qmax
-                    )
-    timer = @benchmark $bb1() 
     
     println("method:", solver)  
     println("reltol:$reltol", ", abstol:$abstol")   
 
     
     
-    solution = solve(
+    solution = solve(                               # main solver
         diffTerm, 
         chSolver,                   
         reltol      = reltol,
